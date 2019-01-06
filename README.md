@@ -1,2 +1,2 @@
 # CTO-gym
-OpenAI environment for CTO domain
+OpenAI environment for Cooperative Target Observation (CTO) domain
