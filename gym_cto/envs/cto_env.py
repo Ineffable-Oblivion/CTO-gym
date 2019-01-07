@@ -2,12 +2,13 @@ import gym
 import random
 import numpy as np
 from math import sqrt
+from gym.envs.classic_control import rendering
 
 class CtoEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     """
-    Summary of the initialized the environment variables
+    Summary of the the environment variables
             
         runTime
             The total time simulation runs for
@@ -79,6 +80,7 @@ class CtoEnv(gym.Env):
 
         self.curr_episode = 0
         self.curr_step = 0
+        self.viewer = None
 
 
     # Checks whether the two points are at least one unit apart
@@ -114,5 +116,44 @@ class CtoEnv(gym.Env):
     def reset(self):
         pass
 
-    def render(self, mode='human', close=False):
-        return
+    def render(self, mode='human'):
+        screen_width = 600
+        screen_height = 600
+
+        self.viewer = rendering.Viewer(screen_width, screen_height)
+
+        #Borders for neat view
+        borderOffset = 50 #Reduces 50px along 4 sides
+        border = rendering.Line((borderOffset, borderOffset), 
+                                (screen_width - borderOffset, borderOffset))
+        self.viewer.add_geom(border)
+        border = rendering.Line((borderOffset, borderOffset), 
+                                (borderOffset, screen_height - borderOffset))
+        self.viewer.add_geom(border)
+        border = rendering.Line((screen_width - borderOffset, screen_height - borderOffset), 
+                                (screen_width - borderOffset, borderOffset))
+        self.viewer.add_geom(border)
+        border = rendering.Line((screen_width - borderOffset, screen_height - borderOffset), 
+                                (borderOffset, screen_height - borderOffset))
+        self.viewer.add_geom(border)
+
+        scale = ( (screen_width - 2*borderOffset)/self.gridWidth, 
+                    (screen_height - 2*borderOffset)/self.gridHeight)
+
+        for i in self.targetLocations:
+            point = (scale[0]*i[0] + borderOffset, scale[1]*i[1] + borderOffset)
+
+            location = rendering.Transform(translation=point)
+            axle = rendering.make_circle(4.0)
+            axle.add_attr(location)
+            axle.set_color(1.0, 0.0, 0.0)
+            self.viewer.add_geom(axle)
+
+        agent = (scale[0]*self.agentPosition[0] + borderOffset, scale[1]*self.agentPosition[1] + borderOffset)
+        location = rendering.Transform(translation=agent)
+        axle = rendering.make_circle(4.0)
+        axle.add_attr(location)
+        axle.set_color(0.0, 0.0, 1.0)
+        self.viewer.add_geom(axle)
+
+        return self.viewer.render(return_rgb_array = mode=='rgb_array')
