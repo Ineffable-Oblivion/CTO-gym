@@ -91,29 +91,34 @@ class CtoEnv(gym.Env):
             
             else:
                 for i in xrange(index):
-                    distance = (self.targetLocations[i][0] - self.targetLocations[index][0])**2
-                    distance += (self.targetLocations[i][1] - self.targetLocations[index][1])**2
-
-                    if sqrt(distance) <= 1:
+                    if self.distance(self.targetLocations[index], 
+                                        self.targetLocations[i]) <= 1:
                         return False
 
                 return True
         
         else:
             for i, pos in enumerate(self.targetLocations):
-                distance = (self.agentPosition[0] - pos[0])**2
-                distance += (self.agentPosition[1] - pos[1])**2
-
-                if sqrt(distance) <= 1:
+                if self.distance(self.agentPosition, pos) <= 1:
                         return False
 
             return True
 
-
-    def step(self, action):
-        pass
+    # Calculates euclidean distance between two points
+    def distance(self, pos1, pos2):
+        euclideanDistance = (pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2
+        return sqrt(euclideanDistance)
 
     def reset(self):
+        self.state = np.array([(0.0, 0.0)]*self.numTargets)
+
+        for i, t in enumerate(self.targetLocations):
+            if self.distance(self.agentPosition, t) <= self.sensorRange:
+                self.state[i] = t
+
+        return self.state
+
+    def step(self, action):
         pass
 
     def render(self, mode='human'):
