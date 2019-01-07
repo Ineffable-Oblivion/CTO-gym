@@ -1,6 +1,7 @@
 # CTO-gym
 OpenAI environment for Cooperative Target Observation (CTO) domain
 
+
 ## Installation
 
 Install the [OpenAI gym](https://gym.openai.com/docs/).

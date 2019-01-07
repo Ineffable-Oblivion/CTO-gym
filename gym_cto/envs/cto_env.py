@@ -161,4 +161,9 @@ class CtoEnv(gym.Env):
         axle.set_color(0.0, 0.0, 1.0)
         self.viewer.add_geom(axle)
 
+        coverage = self.viewer.draw_circle(radius=scale[0]*self.sensorRange, res=30, filled=False)
+        coverage.add_attr(location)
+        coverage.set_color(0.5, 0.5, 0.8)
+        self.viewer.add_geom(coverage)
+
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
