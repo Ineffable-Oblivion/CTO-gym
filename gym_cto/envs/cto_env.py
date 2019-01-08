@@ -2,7 +2,6 @@ import gym
 import random
 import numpy as np
 from math import sqrt
-import multiprocessing as mp
 from gym.envs.classic_control import rendering
 from gym import logger
 
@@ -95,20 +94,16 @@ class CtoEnv(gym.Env):
     def acceptable(self, index, agent=False):
         if not agent:
             if index == 0:
-                return True
-            
+                return True            
             else:
                 for i in xrange(index):
                     if self.distance(self.targetLocations[index], self.targetLocations[i]) <= 1:
                         return False
-
-                return True
-        
+                return True        
         else:
             for i, pos in enumerate(self.targetLocations):
                 if self.distance(self.agentPosition, pos) <= 1:
                         return False
-
             return True
 
 
@@ -133,8 +128,6 @@ class CtoEnv(gym.Env):
             logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True'")
             return
 
-        pool = mp.Pool()
-
         self.curr_episode += 1
 
         reward = 0
@@ -144,7 +137,7 @@ class CtoEnv(gym.Env):
 
             #Move targets
             for i in xrange(self.numTargets):
-                pool.apply(self.moveTarget, args=(i,))
+                self.moveTarget(i)
 
             #Move agent
             if not agentReachedDest:
@@ -154,6 +147,8 @@ class CtoEnv(gym.Env):
             for i, t in enumerate(self.targetLocations):
                 if self.distance(self.agentPosition, t) <= self.sensorRange:
                     reward += 1
+        
+        return self.reset(), reward, self.curr_episode > self.episodes, {}
             
 
     def moveTarget(self, idx):
@@ -195,6 +190,11 @@ class CtoEnv(gym.Env):
             self.agentPosition[1] = 0
         if self.agentPosition[1] > self.gridHeight:
             self.agentPosition[1] = self.gridHeight
+
+        if abs(dest[0] - self.agentPosition[0]) < 1 and abs(dest[1] - self.agentPosition[1]) < 1:
+            return True
+        else:
+            return False
 
     
     def calculateIncrements(self, loc, dest, speed):
