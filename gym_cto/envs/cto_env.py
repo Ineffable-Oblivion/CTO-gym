@@ -2,7 +2,9 @@ import gym
 import random
 import numpy as np
 from math import sqrt
+import multiprocessing as mp
 from gym.envs.classic_control import rendering
+from gym import logger
 
 class CtoEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -29,7 +31,13 @@ class CtoEnv(gym.Env):
     
     """
 
-    def __init__(self, targets=10, sensorRange=15, updateRate=10, targetMaxStep=100,
+    def __init__(self):
+        self.curr_episode = 0
+        self.curr_step = 0
+        self.viewer = None
+
+
+    def initialize(self, targets=10, sensorRange=15, updateRate=10, targetMaxStep=100,
                     targetSpeed=1.0,
                     totalSimTime=1500, gridWidth=150, gridHeight=150):
         # general variables in the environment
@@ -40,6 +48,10 @@ class CtoEnv(gym.Env):
 
         #maximum time for which one target can stay oncourse for its destination
         self.targetMaxStep = targetMaxStep
+
+        #speed of target
+        self.targetSpeed = targetSpeed
+        self.agentSpeed = 1.0
 
         #sensor range of the observer
         self.sensorRange = sensorRange
@@ -55,6 +67,7 @@ class CtoEnv(gym.Env):
         self.targetLocations = np.array([(0.0, 0.0)]*self.numTargets)
         self.targetDestinations = np.array([(0.0, 0.0)]*self.numTargets)
         self.targetSteps = np.array([self.targetMaxStep]*self.numTargets)
+        self.targetPosIncrements = np.array([(-1000.0, -1000.0)]*self.numTargets)
 
         for i in xrange(self.numTargets):
             self.targetDestinations[i][0] = random.uniform(0, self.gridWidth)
@@ -75,12 +88,7 @@ class CtoEnv(gym.Env):
             self.agentPosition[0] = random.uniform(0, self.gridWidth)
             self.agentPosition[1] = random.uniform(0, self.gridHeight)
 
-
-        self.episodes = self.runTime / self.updateRate
-
-        self.curr_episode = 0
-        self.curr_step = 0
-        self.viewer = None
+        self.episodes = self.runTime / self.updateRate  
 
 
     # Checks whether the two points are at least one unit apart
@@ -91,8 +99,7 @@ class CtoEnv(gym.Env):
             
             else:
                 for i in xrange(index):
-                    if self.distance(self.targetLocations[index], 
-                                        self.targetLocations[i]) <= 1:
+                    if self.distance(self.targetLocations[index], self.targetLocations[i]) <= 1:
                         return False
 
                 return True
@@ -104,10 +111,12 @@ class CtoEnv(gym.Env):
 
             return True
 
+
     # Calculates euclidean distance between two points
     def distance(self, pos1, pos2):
         euclideanDistance = (pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2
         return sqrt(euclideanDistance)
+
 
     def reset(self):
         self.state = np.array([(0.0, 0.0)]*self.numTargets)
@@ -118,13 +127,101 @@ class CtoEnv(gym.Env):
 
         return self.state
 
+
     def step(self, action):
-        pass
+        if self.curr_episode >= self.episodes:
+            logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True'")
+            return
+
+        pool = mp.Pool()
+
+        self.curr_episode += 1
+
+        reward = 0
+        agentReachedDest = False
+        for _ in xrange(self.updateRate):
+            self.curr_step += 1
+
+            #Move targets
+            for i in xrange(self.numTargets):
+                pool.apply(self.moveTarget, args=(i,))
+
+            #Move agent
+            if not agentReachedDest:
+                agentReachedDest = self.moveAgent(action)
+
+            #Calculate reward at this step
+            for i, t in enumerate(self.targetLocations):
+                if self.distance(self.agentPosition, t) <= self.sensorRange:
+                    reward += 1
+            
+
+    def moveTarget(self, idx):
+        # Check if this target has been oncourse for max allowed time or it reached its destination
+        if self.targetSteps[idx] == 0 or (abs(self.targetDestinations[idx][0] - self.targetLocations[idx][0]) < 1 and 
+            abs(self.targetDestinations[idx][1] - self.targetLocations[idx][1]) < 1):
+            self.targetDestinations[idx][0] = random.uniform(0, self.gridWidth)
+            self.targetDestinations[idx][1] = random.uniform(0, self.gridHeight)            
+            #Create new destination and reset step counter to max allowed time and position increments to default   
+            self.targetSteps[idx] = self.targetMaxStep
+            self.targetPosIncrements[idx] = np.array((-1000.0, -1000.0))
+
+        if self.targetPosIncrements[idx][0] == -1000.0 or self.targetPosIncrements[idx][1] == -1000.0:
+            self.targetPosIncrements[idx] = self.calculateIncrements(self.targetLocations[idx], 
+                                                                        self.targetDestinations[idx], self.targetSpeed)       
+
+        self.targetLocations[idx] += self.targetPosIncrements[idx]
+
+        if self.targetLocations[idx][0] < 0:
+            self.targetLocations[idx][0] = 0
+        if self.targetLocations[idx][0] > self.gridWidth:
+            self.targetLocations[idx][0] = self.gridWidth
+        if self.targetLocations[idx][1] < 0:
+            self.targetLocations[idx][1] = 0
+        if self.targetLocations[idx][1] > self.gridHeight:
+            self.targetLocations[idx][1] = self.gridHeight
+
+        self.targetSteps[idx] -= 1
+
+
+    def moveAgent(self, dest):
+        self.agentPosition += self.calculateIncrements(self.agentPosition, dest, self.agentSpeed)
+
+        if self.agentPosition[0] < 0:
+            self.agentPosition[0] = 0
+        if self.agentPosition[0] > self.gridWidth:
+            self.agentPosition[0] = self.gridWidth
+        if self.agentPosition[1] < 0:
+            self.agentPosition[1] = 0
+        if self.agentPosition[1] > self.gridHeight:
+            self.agentPosition[1] = self.gridHeight
+
+    
+    def calculateIncrements(self, loc, dest, speed):
+        dx = dest[0] - loc[0]
+        dy = dest[1] - loc[1]
+
+        theta = 0.0
+        if abs(dx) > abs(dy):
+            theta = abs(dx)
+        else:
+            theta = abs(dy)
+
+        xInc = dx / theta
+        yInc = dy / theta
+        normalizer = sqrt(xInc**2 + yInc**2)
+
+        xInc = (xInc / normalizer)*speed
+        yInc = (yInc / normalizer)*speed
+
+        return np.array((xInc, yInc))
+
 
     def render(self, mode='human'):
         screen_width = 600
         screen_height = 600
 
+        #TODO - Optimize for sequential renders
         self.viewer = rendering.Viewer(screen_width, screen_height)
 
         #Borders for neat view

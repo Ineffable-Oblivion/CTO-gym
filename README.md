@@ -19,4 +19,5 @@ import gym
 import gym_cto
 
 env = gym.make('CTO-v0')
+env.initialize() #compulsory
 ```
