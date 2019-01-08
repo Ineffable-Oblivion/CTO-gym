@@ -221,46 +221,61 @@ class CtoEnv(gym.Env):
         screen_width = 600
         screen_height = 600
 
-        #TODO - Optimize for sequential renders
-        self.viewer = rendering.Viewer(screen_width, screen_height)
-
-        #Borders for neat view
         borderOffset = 50 #Reduces 50px along 4 sides
-        border = rendering.Line((borderOffset, borderOffset), 
-                                (screen_width - borderOffset, borderOffset))
-        self.viewer.add_geom(border)
-        border = rendering.Line((borderOffset, borderOffset), 
-                                (borderOffset, screen_height - borderOffset))
-        self.viewer.add_geom(border)
-        border = rendering.Line((screen_width - borderOffset, screen_height - borderOffset), 
-                                (screen_width - borderOffset, borderOffset))
-        self.viewer.add_geom(border)
-        border = rendering.Line((screen_width - borderOffset, screen_height - borderOffset), 
-                                (borderOffset, screen_height - borderOffset))
-        self.viewer.add_geom(border)
 
-        scale = ( (screen_width - 2*borderOffset)/self.gridWidth, 
+        if self.viewer is None:
+            self.viewer = rendering.Viewer(screen_width, screen_height)
+
+            self.scale = ( (screen_width - 2*borderOffset)/self.gridWidth, 
                     (screen_height - 2*borderOffset)/self.gridHeight)
+            #Borders for neat view
+            border1 = rendering.Line((borderOffset, borderOffset), 
+                                    (screen_width - borderOffset, borderOffset))
+            self.viewer.add_geom(border1)
+            border2 = rendering.Line((borderOffset, borderOffset), 
+                                    (borderOffset, screen_height - borderOffset))
+            self.viewer.add_geom(border2)
+            border3 = rendering.Line((screen_width - borderOffset, screen_height - borderOffset), 
+                                    (screen_width - borderOffset, borderOffset))
+            self.viewer.add_geom(border3)
+            border4 = rendering.Line((screen_width - borderOffset, screen_height - borderOffset), 
+                                    (borderOffset, screen_height - borderOffset))
+            self.viewer.add_geom(border4)
 
-        for i in self.targetLocations:
-            point = (scale[0]*i[0] + borderOffset, scale[1]*i[1] + borderOffset)
+            #Memorize
+            self.targets_geom = []
+            for i in self.targetLocations:
+                point = (self.scale[0]*i[0] + borderOffset, self.scale[1]*i[1] + borderOffset)
 
-            location = rendering.Transform(translation=point)
-            axle = rendering.make_circle(4.0)
-            axle.add_attr(location)
-            axle.set_color(1.0, 0.0, 0.0)
-            self.viewer.add_geom(axle)
+                location = rendering.Transform(translation=point)
+                axle = rendering.make_circle(4.0)
+                axle.add_attr(location)
+                axle.set_color(1.0, 0.0, 0.0)
+                self.targets_geom.append(location)
+                self.viewer.add_geom(axle)
 
-        agent = (scale[0]*self.agentPosition[0] + borderOffset, scale[1]*self.agentPosition[1] + borderOffset)
-        location = rendering.Transform(translation=agent)
-        axle = rendering.make_circle(4.0)
-        axle.add_attr(location)
-        axle.set_color(0.0, 0.0, 1.0)
-        self.viewer.add_geom(axle)
+            self.agent_geom = (self.scale[0]*self.agentPosition[0] + borderOffset, 
+                                self.scale[1]*self.agentPosition[1] + borderOffset)
+            location = rendering.Transform(translation=self.agent_geom)
+            self.agent_geom = rendering.make_circle(4.0)
+            self.agent_geom.add_attr(location)
+            self.agent_geom.set_color(0.0, 0.0, 1.0)
+            self.viewer.add_geom(self.agent_geom)
+            self.agent_geom = location
 
-        coverage = self.viewer.draw_circle(radius=scale[0]*self.sensorRange, res=30, filled=False)
-        coverage.add_attr(location)
-        coverage.set_color(0.5, 0.5, 0.8)
-        self.viewer.add_geom(coverage)
+            coverage = self.viewer.draw_circle(radius=self.scale[0]*self.sensorRange, res=30, filled=False)
+            coverage.add_attr(location)
+            coverage.set_color(0.5, 0.5, 0.8)
+
+            self.viewer.add_geom(coverage)
+
+        else:
+            for i, t in enumerate(self.targets_geom):
+                point = (self.scale[0]*self.targetLocations[i][0] + borderOffset, self.scale[1]*self.targetLocations[i][1] + borderOffset)
+
+                t.set_translation(point[0], point[1])
+
+            point = (self.scale[0]*self.agentPosition[0] + borderOffset, self.scale[1]*self.agentPosition[1] + borderOffset)
+            self.agent_geom.set_translation(point[0], point[1])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
