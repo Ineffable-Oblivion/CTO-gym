@@ -209,6 +209,9 @@ class CtoEnv(gym.Env):
             theta = abs(dx)
         else:
             theta = abs(dy)
+        
+        if theta == 0.0:
+            return np.array((0.0, 0.0))
 
         xInc = dx / theta
         yInc = dy / theta
@@ -224,13 +227,13 @@ class CtoEnv(gym.Env):
         screen_width = 600
         screen_height = 600
 
-        borderOffset = 50 #Reduces 50px along 4 sides
+        borderOffset = 50.0 #Reduces 50px along 4 sides
 
         if self.viewer is None:
             self.viewer = rendering.Viewer(screen_width, screen_height)
 
-            self.scale = ( (screen_width - 2*borderOffset)/self.gridWidth, 
-                    (screen_height - 2*borderOffset)/self.gridHeight)
+            self.scale = ( (screen_width - 2*borderOffset)*1.0/self.gridWidth, 
+                    (screen_height - 2*borderOffset)*1.0/self.gridHeight)
             #Borders for neat view
             border1 = rendering.Line((borderOffset, borderOffset), 
                                     (screen_width - borderOffset, borderOffset))
