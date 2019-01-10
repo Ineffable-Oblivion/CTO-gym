@@ -282,3 +282,8 @@ class CtoEnv(gym.Env):
             self.agent_geom.set_translation(point[0], point[1])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
+
+    def stopRender(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None
