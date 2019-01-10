@@ -147,6 +147,9 @@ class CtoEnv(gym.Env):
             for i, t in enumerate(self.targetLocations):
                 if self.distance(self.agentPosition, t) <= self.sensorRange:
                     reward += 1
+
+            if self.viewer is not None:
+                self.render()
         
         return self.reset(), reward, self.curr_episode > self.episodes, {}
             
