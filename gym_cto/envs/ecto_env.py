@@ -12,55 +12,38 @@ CTO variant with only multiple observers
 class eCtoEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    """
-    Summary of the the environment variables
-            
-        runTime
-            The total time simulation runs for
-
-        updateRate
-            Time interval between each decision making/action
-
-        episodes
-            Equal to runTime / updaRate
-            Simulation terminates after these many episodes
-
-        gridWidth, gridHeight
-            Dimensions of the 2D arena
-
-        sensorRange
-            The maximum distance between agent and target for the agent to notice
-            the target
-    
-    """
-
     def __init__(self):
         self.curr_episode = 0
         self.curr_step = 0
         self.viewer = None
 
 
-    def initialize(self, targets=10, sensorRange=15, updateRate=10, targetMaxStep=100,
-                    targetSpeed=1.0,
-                    totalSimTime=1500, gridWidth=150, gridHeight=150):
+    def initialize(self, targets=10, agents=10, sensorRange=15, updateRate=10, targetMaxStep=100,
+                    targetSpeed=1.0, agentSpeed=1.0,
+                    totalSimTime=1500, gridWidth=150, gridHeight=150, compact=False):
         # general variables in the environment
         self.runTime = totalSimTime        
 
         #total number of targets in the simulation
         self.numTargets = targets
 
+        #total number of agents (observers) in the simulation
+        self.numAgents = agents
+
         #maximum time for which one target can stay oncourse for its destination
         self.targetMaxStep = targetMaxStep
 
-        #speed of target
+        #speed of target and observer
         self.targetSpeed = targetSpeed
-        self.agentSpeed = 1.0
+        self.agentSpeed = agentSpeed
 
         #sensor range of the observer
         self.sensorRange = sensorRange
 
         #time after which observer takes the decision
         self.updateRate = updateRate
+
+        self.compactRepresentation = compact
 
         #2D field dimensions
         self.gridHeight = gridHeight
@@ -83,20 +66,24 @@ class eCtoEnv(gym.Env):
                 self.targetLocations[i][0] = random.uniform(0, self.gridWidth)
                 self.targetLocations[i][1] = random.uniform(0, self.gridHeight)
 
-        #Initialize the agent and ensure it is not on top of other target
-        self.agentPosition = np.array([0.0, 0.0])
-        self.agentPosition[0] = random.uniform(0, self.gridWidth)
-        self.agentPosition[1] = random.uniform(0, self.gridHeight)
-        while not self.acceptable(-1, True):
-            self.agentPosition[0] = random.uniform(0, self.gridWidth)
-            self.agentPosition[1] = random.uniform(0, self.gridHeight)
+        #Initialize the agents and ensure it is not on top of other target or other agents
+        self.agentLocations = np.array([(0.0, 0.0)]*self.numAgents)
+        self.agentPosIncrements = np.array([(-1000.0, -1000.0)]*self.numAgents)
+
+        for i in xrange(self.numAgents):
+            self.agentLocations[i][0] = random.uniform(0, self.gridWidth)
+            self.agentLocations[i][1] = random.uniform(0, self.gridHeight)
+
+            while not self.acceptable(i, True):
+                self.agentLocations[i][0] = random.uniform(0, self.gridWidth)
+                self.agentLocations[i][1] = random.uniform(0, self.gridHeight)
 
         self.episodes = self.runTime / self.updateRate  
 
 
     # Checks whether the two points are at least one unit apart
     def acceptable(self, index, agent=False):
-        if not agent:
+        if not agent: #if only target, just check with other targets
             if index == 0:
                 return True            
             else:
@@ -104,10 +91,14 @@ class eCtoEnv(gym.Env):
                     if self.distance(self.targetLocations[index], self.targetLocations[i]) <= 1:
                         return False
                 return True        
-        else:
+        else: #first check with targets and then the other agents
             for i, pos in enumerate(self.targetLocations):
-                if self.distance(self.agentPosition, pos) <= 1:
-                        return False
+                if self.distance(self.agentLocations[index], pos) <= 1:
+                    return False
+            
+            for i in xrange(index):
+                if self.distance(self.agentLocations[index], self.agentLocations[i]) <= 1:
+                    return False
             return True
 
 
@@ -118,13 +109,22 @@ class eCtoEnv(gym.Env):
 
 
     def reset(self):
-        self.state = np.array([(0.0, 0.0)]*self.numTargets)
+        if not self.compactRepresentation:
+            
+        else:
+            self.state = [[(0.0,0.0)]*(self.numTargets + self.numAgents)]*self.numAgents
+            
+            for i in xrange(self.numAgents):
+                for j, t in enumerate(self.targetLocations):
+                    if self.distance(self.agentLocations[i], t) <= self.sensorRange:
+                        self.state[i][j] = t
 
-        for i, t in enumerate(self.targetLocations):
-            if self.distance(self.agentPosition, t) <= self.sensorRange:
-                self.state[i] = t
+                for j in xrange(i+1, self.numAgents):
+                    if self.distance(self.agentLocations[i], self.agentLocations[j]) <= self.sensorRange:
+                        self.state[i][self.numTargets + j] = self.agentLocations[j]
+                        self.state[j][self.numTargets + i] = self.agentLocations[i]
 
-        return self.state
+        return np.array(self.state)
 
 
     def step(self, action):
@@ -132,10 +132,16 @@ class eCtoEnv(gym.Env):
             logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True'")
             return
 
+        action = np.array(action)
+        if action.shape != (self.numAgents, 2):
+            logger.error("Incorrect dimenions of action. Action must have destination position for each agent")
+            return
+
         self.curr_episode += 1
 
-        reward = 0
-        agentReachedDest = False
+        reward = np.zeros(self.numAgents)
+        self.agentPosIncrements = np.array([(-1000.0, -1000.0)]*self.numAgents)
+        agentReachedDest = [False]*self.numAgents
         for _ in xrange(self.updateRate):
             self.curr_step += 1
 
@@ -144,13 +150,14 @@ class eCtoEnv(gym.Env):
                 self.moveTarget(i)
 
             #Move agent
-            if not agentReachedDest:
-                agentReachedDest = self.moveAgent(action)
+            for i in xrange(self.numAgents):
+                if not agentReachedDest[i]:
+                    agentReachedDest[i] = self.moveAgent(i, action[i])
+                else: #Already reached. Removes precision errors
+                    self.agentLocations[i] = action[i]
 
             #Calculate reward at this step
-            for i, t in enumerate(self.targetLocations):
-                if self.distance(self.agentPosition, t) <= self.sensorRange:
-                    reward += 1
+            reward += self.calculateAgentRewards()
 
             if self.viewer is not None:
                 self.render()
@@ -161,7 +168,7 @@ class eCtoEnv(gym.Env):
     def moveTarget(self, idx):
         # Check if this target has been oncourse for max allowed time or it reached its destination
         if self.targetSteps[idx] == 0 or (abs(self.targetDestinations[idx][0] - self.targetLocations[idx][0]) < 1 and 
-            abs(self.targetDestinations[idx][1] - self.targetLocations[idx][1]) < 1):
+            abs(self.targetDestinations[idx][1] - self.targetLocations[idx][1]) < 1): #To prevent to & fro movement over destination
             self.targetDestinations[idx][0] = random.uniform(0, self.gridWidth)
             self.targetDestinations[idx][1] = random.uniform(0, self.gridHeight)            
             #Create new destination and reset step counter to max allowed time and position increments to default   
@@ -186,22 +193,44 @@ class eCtoEnv(gym.Env):
         self.targetSteps[idx] -= 1
 
 
-    def moveAgent(self, dest):
-        self.agentPosition += self.calculateIncrements(self.agentPosition, dest, self.agentSpeed)
+    def moveAgent(self, index, dest):
+        if self.agentPosIncrements[index][0] == -1000.0 or self.agentPosIncrements[index][1] == -1000.0:
+            self.agentPosIncrements[index] = self.calculateIncrements(self.agentLocations[index], dest, self.agentSpeed)
 
-        if self.agentPosition[0] < 0:
-            self.agentPosition[0] = 0
-        if self.agentPosition[0] > self.gridWidth:
-            self.agentPosition[0] = self.gridWidth
-        if self.agentPosition[1] < 0:
-            self.agentPosition[1] = 0
-        if self.agentPosition[1] > self.gridHeight:
-            self.agentPosition[1] = self.gridHeight
+        self.agentLocations[index] += self.agentPosIncrements[index]
 
-        if abs(dest[0] - self.agentPosition[0]) < 1 and abs(dest[1] - self.agentPosition[1]) < 1:
+        if self.agentLocations[index][0] < 0:
+            self.agentLocations[index][0] = 0
+        if self.agentLocations[index][0] > self.gridWidth:
+            self.agentLocations[index][0] = self.gridWidth
+        if self.agentLocations[index][1] < 0:
+            self.agentLocations[index][1] = 0
+        if self.agentLocations[index][1] > self.gridHeight:
+            self.agentLocations[index][1] = self.gridHeight
+
+        #To prevent to & fro movement over destination
+        if abs(dest[0] - self.agentLocations[index][0]) < 1 and abs(dest[1] - self.agentLocations[index][1]) < 1:
             return True
         else:
             return False
+
+    
+    def calculateAgentRewards(self):
+        curr_reward = np.zeros(self.numAgents)
+
+        for i, t in enumerate(self.targetLocations):
+            nearestAgent = -1
+            nearestdist = 2147483647.0
+            for j, a in enumerate(self.agentLocations):
+                distance = self.distance(a, t)
+                if distance <= self.sensorRange and distance < nearestdist:
+                    nearestdist = distance
+                    nearestAgent = j
+
+            if nearestAgent != -1:
+                curr_reward[nearestAgent] += 1
+        
+        return curr_reward
 
     
     def calculateIncrements(self, loc, dest, speed):
@@ -256,7 +285,6 @@ class eCtoEnv(gym.Env):
             self.targets_geom = []
             for i in self.targetLocations:
                 point = (self.scale[0]*i[0] + borderOffset, self.scale[1]*i[1] + borderOffset)
-
                 location = rendering.Transform(translation=point)
                 axle = rendering.make_circle(4.0)
                 axle.add_attr(location)
@@ -264,29 +292,33 @@ class eCtoEnv(gym.Env):
                 self.targets_geom.append(location)
                 self.viewer.add_geom(axle)
 
-            self.agent_geom = (self.scale[0]*self.agentPosition[0] + borderOffset, 
-                                self.scale[1]*self.agentPosition[1] + borderOffset)
-            location = rendering.Transform(translation=self.agent_geom)
-            self.agent_geom = rendering.make_circle(4.0)
-            self.agent_geom.add_attr(location)
-            self.agent_geom.set_color(0.0, 0.0, 1.0)
-            self.viewer.add_geom(self.agent_geom)
-            self.agent_geom = location
+            self.agents_geom = []
+            for i in self.agentLocations:
+                point = (self.scale[0]*i[0] + borderOffset, self.scale[1]*i[1] + borderOffset)
+                location = rendering.Transform(translation=point)
+                axle = rendering.make_circle(4.0)
+                axle.add_attr(location)
+                axle.set_color(0.0, 0.0, 1.0)
+                self.agents_geom.append(location)
+                self.viewer.add_geom(axle)
 
-            coverage = self.viewer.draw_circle(radius=self.scale[0]*self.sensorRange, res=30, filled=False)
-            coverage.add_attr(location)
-            coverage.set_color(0.5, 0.5, 0.8)
-
-            self.viewer.add_geom(coverage)
+                coverage = self.viewer.draw_circle(radius=self.scale[0]*self.sensorRange, res=30, filled=False)
+                coverage.add_attr(location)
+                coverage.set_color(0.5, 0.5, 0.8)
+                self.viewer.add_geom(coverage)
 
         else:
             for i, t in enumerate(self.targets_geom):
-                point = (self.scale[0]*self.targetLocations[i][0] + borderOffset, self.scale[1]*self.targetLocations[i][1] + borderOffset)
+                point = (self.scale[0]*self.targetLocations[i][0] + borderOffset, 
+                            self.scale[1]*self.targetLocations[i][1] + borderOffset)
 
                 t.set_translation(point[0], point[1])
 
-            point = (self.scale[0]*self.agentPosition[0] + borderOffset, self.scale[1]*self.agentPosition[1] + borderOffset)
-            self.agent_geom.set_translation(point[0], point[1])
+            for i, a in enumerate(self.agents_geom):
+                point = (self.scale[0]*self.agentLocations[i][0] + borderOffset, 
+                            self.scale[1]*self.agentLocations[i][1] + borderOffset)
+
+                a.set_translation(point[0], point[1])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 

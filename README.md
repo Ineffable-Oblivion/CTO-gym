@@ -18,7 +18,7 @@ pip install -e .
 import gym
 import gym_cto
 
-env = gym.make('CTO-v0')
+env = gym.make('CTO-v0') or env = gym.make('CTO-v1')
 env.initialize() #compulsory
 env.reset() #compulsory
 ```

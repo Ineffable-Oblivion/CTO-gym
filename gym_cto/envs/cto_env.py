@@ -42,7 +42,7 @@ class CtoEnv(gym.Env):
 
     def initialize(self, targets=10, sensorRange=15, updateRate=10, targetMaxStep=100,
                     targetSpeed=1.0,
-                    totalSimTime=1500, gridWidth=150, gridHeight=150):
+                    totalSimTime=1500, gridWidth=150, gridHeight=150, compact=False):
         # general variables in the environment
         self.runTime = totalSimTime        
 
@@ -65,6 +65,8 @@ class CtoEnv(gym.Env):
         #2D field dimensions
         self.gridHeight = gridHeight
         self.gridWidth = gridWidth
+
+        self.compactRepresentation = compact
 
         #Initialize target locations and their destinations
         self.targetLocations = np.array([(0.0, 0.0)]*self.numTargets)
@@ -118,13 +120,20 @@ class CtoEnv(gym.Env):
 
 
     def reset(self):
-        self.state = np.array([(0.0, 0.0)]*self.numTargets)
+        if self.compactRepresentation:
+            self.state = []
+            for i, t in enumerate(self.targetLocations):
+                if self.distance(self.agentPosition, t) <= self.sensorRange:
+                    self.state.append(t)
 
-        for i, t in enumerate(self.targetLocations):
-            if self.distance(self.agentPosition, t) <= self.sensorRange:
-                self.state[i] = t
+        else:
+            self.state = [(0.0, 0.0)]*self.numTargets
 
-        return self.state
+            for i, t in enumerate(self.targetLocations):
+                if self.distance(self.agentPosition, t) <= self.sensorRange:
+                    self.state[i] = t
+
+        return np.array(self.state)
 
 
     def step(self, action):
@@ -146,6 +155,8 @@ class CtoEnv(gym.Env):
             #Move agent
             if not agentReachedDest:
                 agentReachedDest = self.moveAgent(action)
+            else:
+                self.agentPosition = action
 
             #Calculate reward at this step
             for i, t in enumerate(self.targetLocations):
