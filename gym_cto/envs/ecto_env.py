@@ -6,10 +6,10 @@ from gym.envs.classic_control import rendering
 from gym import logger
 
 """
-CTO variant with only 1 observer
+CTO variant with only multiple observers
 """
 
-class CtoEnv(gym.Env):
+class eCtoEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     """
