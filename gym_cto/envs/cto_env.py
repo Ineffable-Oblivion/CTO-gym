@@ -69,8 +69,8 @@ class CtoEnv(gym.Env):
         self.compactRepresentation = compact
 
         #Initialize target locations and their destinations
-        self.targetLocations = np.array([(0.0, 0.0)]*self.numTargets)
-        self.targetDestinations = np.array([(0.0, 0.0)]*self.numTargets)
+        self.targetLocations = np.array([[0.0, 0.0]]*self.numTargets)
+        self.targetDestinations = np.array([[0.0, 0.0]]*self.numTargets)
         self.targetSteps = np.array([self.targetMaxStep]*self.numTargets)
         self.targetPosIncrements = np.array([(-1000.0, -1000.0)]*self.numTargets)
 
@@ -127,7 +127,7 @@ class CtoEnv(gym.Env):
                     self.state.append(t)
 
         else:
-            self.state = [(0.0, 0.0)]*self.numTargets
+            self.state = [[0.0, 0.0]]*self.numTargets
 
             for i, t in enumerate(self.targetLocations):
                 if self.distance(self.agentPosition, t) <= self.sensorRange:

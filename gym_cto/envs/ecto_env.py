@@ -20,7 +20,7 @@ class eCtoEnv(gym.Env):
 
     def initialize(self, targets=10, agents=10, sensorRange=15, updateRate=10, targetMaxStep=100,
                     targetSpeed=1.0, agentSpeed=1.0,
-                    totalSimTime=1500, gridWidth=150, gridHeight=150, compact=False):
+                    totalSimTime=1500, gridWidth=150, gridHeight=150, compact=False, mark=False):
         # general variables in the environment
         self.runTime = totalSimTime        
 
@@ -44,6 +44,7 @@ class eCtoEnv(gym.Env):
         self.updateRate = updateRate
 
         self.compactRepresentation = compact
+        self.markRewardGivingTargets = mark
 
         #2D field dimensions
         self.gridHeight = gridHeight
@@ -109,20 +110,56 @@ class eCtoEnv(gym.Env):
 
 
     def reset(self):
-        if not self.compactRepresentation:
-            
-        else:
-            self.state = [[(0.0,0.0)]*(self.numTargets + self.numAgents)]*self.numAgents
-            
+        _, reward_assigned_to = self.calculateAgentRewards()
+        self.state = []
+
+        if self.compactRepresentation:
             for i in xrange(self.numAgents):
+                agent_state = []
                 for j, t in enumerate(self.targetLocations):
                     if self.distance(self.agentLocations[i], t) <= self.sensorRange:
-                        self.state[i][j] = t
+                        if self.markRewardGivingTargets:
+                            if reward_assigned_to[j] == i:
+                                agent_state.append([t[0], t[1], 1, 1])
+                            else:
+                                agent_state.append([t[0], t[1], 1, 0])
+                        else:
+                            agent_state.append([t[0], t[1], 1])
 
-                for j in xrange(i+1, self.numAgents):
-                    if self.distance(self.agentLocations[i], self.agentLocations[j]) <= self.sensorRange:
-                        self.state[i][self.numTargets + j] = self.agentLocations[j]
-                        self.state[j][self.numTargets + i] = self.agentLocations[i]
+                for j in xrange(self.numAgents):
+                    if self.distance(self.agentLocations[i], self.agentLocations[j]) <= self.sensorRange and j != i:
+                        if self.markRewardGivingTargets:
+                            agent_state.append([self.agentLocations[j][0], self.agentLocations[j][1], 2, 0])
+                        else:
+                            agent_state.append([self.agentLocations[j][0], self.agentLocations[j][1], 2])
+                
+                self.state.append(agent_state)            
+        else:            
+            for i in xrange(self.numAgents):
+                agent_state = []
+                if self.markRewardGivingTargets:
+                    agent_state = [[0.0,0.0,0]]*(self.numTargets + self.numAgents)
+                else:
+                    agent_state = [[0.0,0.0]]*(self.numTargets + self.numAgents)
+
+                for j, t in enumerate(self.targetLocations):
+                    if self.distance(self.agentLocations[i], t) <= self.sensorRange:
+                        if self.markRewardGivingTargets:
+                            if reward_assigned_to[j] == i:
+                                agent_state[j] = [t[0], t[1], 1]
+                            else:
+                                agent_state[j] = [t[0], t[1], 0]
+                        else:
+                            agent_state[j] = t
+
+                for j in xrange(self.numAgents):
+                    if self.distance(self.agentLocations[i], self.agentLocations[j]) <= self.sensorRange and j != i:
+                        if self.markRewardGivingTargets:
+                            agent_state[self.numTargets + j] = (self.agentLocations[j][0], self.agentLocations[j][1], 0)
+                        else:
+                            agent_state[self.numTargets + j] = self.agentLocations[j]
+                
+                self.state.append(agent_state)
 
         return np.array(self.state)
 
@@ -157,7 +194,7 @@ class eCtoEnv(gym.Env):
                     self.agentLocations[i] = action[i]
 
             #Calculate reward at this step
-            reward += self.calculateAgentRewards()
+            reward += self.calculateAgentRewards()[0]
 
             if self.viewer is not None:
                 self.render()
@@ -217,6 +254,7 @@ class eCtoEnv(gym.Env):
     
     def calculateAgentRewards(self):
         curr_reward = np.zeros(self.numAgents)
+        reward_awarded_to = np.zeros(self.numTargets)
 
         for i, t in enumerate(self.targetLocations):
             nearestAgent = -1
@@ -229,8 +267,11 @@ class eCtoEnv(gym.Env):
 
             if nearestAgent != -1:
                 curr_reward[nearestAgent] += 1
+                reward_awarded_to[i] = nearestAgent
+            else:
+                reward_awarded_to[i] = -1
         
-        return curr_reward
+        return curr_reward, reward_awarded_to
 
     
     def calculateIncrements(self, loc, dest, speed):
