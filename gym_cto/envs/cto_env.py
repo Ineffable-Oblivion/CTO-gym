@@ -93,6 +93,8 @@ class CtoEnv(gym.Env):
             self.agentPosition[0] = random.uniform(0, self.gridWidth)
             self.agentPosition[1] = random.uniform(0, self.gridHeight)
 
+        self.agentPosIncrements = np.array([-1000.0, -1000.0])
+
         self.episodes = self.runTime / self.updateRate  
 
 
@@ -145,6 +147,8 @@ class CtoEnv(gym.Env):
 
         reward = 0
         agentReachedDest = False
+        self.agentPosIncrements = np.array([-1000.0, -1000.0])
+
         for _ in xrange(self.updateRate):
             self.curr_step += 1
 
@@ -198,7 +202,10 @@ class CtoEnv(gym.Env):
 
 
     def moveAgent(self, dest):
-        self.agentPosition += self.calculateIncrements(self.agentPosition, dest, self.agentSpeed)
+        if self.agentPosIncrements[0] == -1000.0 or self.agentPosIncrements[1] == -1000.0:
+            self.agentPosIncrements = self.calculateIncrements(self.agentPosition, dest, self.agentSpeed)
+        
+        self.agentPosition += self.agentPosIncrements
 
         if self.agentPosition[0] < 0:
             self.agentPosition[0] = 0
@@ -216,8 +223,8 @@ class CtoEnv(gym.Env):
 
     
     def calculateIncrements(self, loc, dest, speed):
-        dx = dest[0] - loc[0]
-        dy = dest[1] - loc[1]
+        dx = 1.0*dest[0] - loc[0]
+        dy = 1.0*dest[1] - loc[1]
 
         theta = 0.0
         if abs(dx) > abs(dy):

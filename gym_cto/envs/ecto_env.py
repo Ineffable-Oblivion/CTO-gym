@@ -275,8 +275,8 @@ class eCtoEnv(gym.Env):
 
     
     def calculateIncrements(self, loc, dest, speed):
-        dx = dest[0] - loc[0]
-        dy = dest[1] - loc[1]
+        dx = 1.0*dest[0] - loc[0]
+        dy = 1.0*dest[1] - loc[1]
 
         theta = 0.0
         if abs(dx) > abs(dy):
