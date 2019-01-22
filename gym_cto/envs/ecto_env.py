@@ -165,8 +165,8 @@ class eCtoEnv(gym.Env):
 
 
     def step(self, action):
-        if self.curr_episode >= self.episodes:
-            logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True'")
+        if self.curr_episode > self.episodes:
+            logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'initialize()' and 'reset()' once you receive 'done = True'")
             return
 
         action = np.array(action)
@@ -191,7 +191,7 @@ class eCtoEnv(gym.Env):
                 if not agentReachedDest[i]:
                     agentReachedDest[i] = self.moveAgent(i, action[i])
                 else: #Already reached. Removes precision errors
-                    self.agentLocations[i] = action[i]
+                    self.agentLocations[i] = action[i].astype('float64')
 
             #Calculate reward at this step
             reward += self.calculateAgentRewards()[0]
@@ -199,7 +199,7 @@ class eCtoEnv(gym.Env):
             if self.viewer is not None:
                 self.render()
         
-        return self.reset(), reward, self.curr_episode > self.episodes, {}
+        return self.reset(), reward, self.curr_episode >= self.episodes, {}
             
 
     def moveTarget(self, idx):

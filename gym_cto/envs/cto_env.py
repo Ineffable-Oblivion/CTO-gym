@@ -139,8 +139,8 @@ class CtoEnv(gym.Env):
 
 
     def step(self, action):
-        if self.curr_episode >= self.episodes:
-            logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True'")
+        if self.curr_episode > self.episodes:
+            logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'initialize()' and 'reset()' once you receive 'done = True'")
             return
 
         self.curr_episode += 1
@@ -160,7 +160,7 @@ class CtoEnv(gym.Env):
             if not agentReachedDest:
                 agentReachedDest = self.moveAgent(action)
             else:
-                self.agentPosition = action
+                self.agentPosition = action.astype('float64')
 
             #Calculate reward at this step
             for i, t in enumerate(self.targetLocations):
@@ -170,7 +170,7 @@ class CtoEnv(gym.Env):
             if self.viewer is not None:
                 self.render()
         
-        return self.reset(), reward, self.curr_episode > self.episodes, {}
+        return self.reset(), reward, self.curr_episode >= self.episodes, {}
             
 
     def moveTarget(self, idx):
