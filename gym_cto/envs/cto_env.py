@@ -244,6 +244,9 @@ class CtoEnv(gym.Env):
 
         return np.array((xInc, yInc))
 
+    def getAgentPosition(self):
+        return self.agentPosition
+
 
     def render(self, mode='human'):
         screen_width = 600

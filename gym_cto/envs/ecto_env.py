@@ -296,6 +296,10 @@ class eCtoEnv(gym.Env):
 
         return np.array((xInc, yInc))
 
+    
+    def getAgentPosition(self, i):
+        return self.agentLocations[i]
+
 
     def render(self, mode='human'):
         screen_width = 600
