@@ -13,14 +13,16 @@ class eCtoEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self):
-        self.curr_episode = 0
-        self.curr_step = 0
         self.viewer = None
 
 
     def initialize(self, targets=10, agents=10, sensorRange=15, updateRate=10, targetMaxStep=100,
                     targetSpeed=1.0, agentSpeed=1.0,
                     totalSimTime=1500, gridWidth=150, gridHeight=150, compact=False, mark=False):
+        #System variables
+        self.curr_episode = 0
+        self.curr_step = 0
+        
         # general variables in the environment
         self.runTime = totalSimTime        
 
