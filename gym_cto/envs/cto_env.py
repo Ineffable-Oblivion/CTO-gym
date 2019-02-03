@@ -160,7 +160,7 @@ class CtoEnv(gym.Env):
             if not agentReachedDest:
                 agentReachedDest = self.moveAgent(action)
             else:
-                self.agentPosition = action.astype('float64')
+                self.agentPosition = action.astype('float32')
 
             #Calculate reward at this step
             for i, t in enumerate(self.targetLocations):

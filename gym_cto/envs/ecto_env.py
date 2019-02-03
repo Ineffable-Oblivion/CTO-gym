@@ -191,7 +191,7 @@ class eCtoEnv(gym.Env):
                 if not agentReachedDest[i]:
                     agentReachedDest[i] = self.moveAgent(i, action[i])
                 else: #Already reached. Removes precision errors
-                    self.agentLocations[i] = action[i].astype('float64')
+                    self.agentLocations[i] = action[i].astype('float32')
 
             #Calculate reward at this step
             reward += self.calculateAgentRewards()[0]
