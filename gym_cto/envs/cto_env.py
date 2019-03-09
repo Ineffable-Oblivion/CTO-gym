@@ -137,6 +137,7 @@ class CtoEnv(gym.Env):
                 if self.distance(self.agentPosition, t) <= self.sensorRange:
                     self.state[i] = t
 
+        state.append(self.agentPosition)
         return np.array(self.state)
 
 

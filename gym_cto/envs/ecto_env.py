@@ -129,7 +129,7 @@ class eCtoEnv(gym.Env):
                             agent_state.append([t[0], t[1], 1])
 
                 for j in xrange(self.numAgents):
-                    if self.distance(self.agentLocations[i], self.agentLocations[j]) <= self.sensorRange and j != i:
+                    if self.distance(self.agentLocations[i], self.agentLocations[j]) <= self.sensorRange:
                         if self.markRewardGivingTargets:
                             agent_state.append([self.agentLocations[j][0], self.agentLocations[j][1], 2, 0])
                         else:
