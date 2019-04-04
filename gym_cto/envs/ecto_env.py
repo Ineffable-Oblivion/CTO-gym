@@ -171,7 +171,8 @@ class eCtoEnv(gym.Env):
             logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'initialize()' and 'reset()' once you receive 'done = True'")
             return
 
-        action = np.array(action)
+        action = np.array(action).astype('float32')
+        
         if action.shape != (self.numAgents, 2):
             logger.error("Incorrect dimenions of action. Action must have destination position for each agent")
             return
@@ -193,7 +194,7 @@ class eCtoEnv(gym.Env):
                 if not agentReachedDest[i]:
                     agentReachedDest[i] = self.moveAgent(i, action[i])
                 else: #Already reached. Removes precision errors
-                    self.agentLocations[i] = action[i].astype('float32')
+                    self.agentLocations[i] = action[i]
 
             #Calculate reward at this step
             reward += self.calculateAgentRewards()[0]

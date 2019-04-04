@@ -146,6 +146,8 @@ class CtoEnv(gym.Env):
             logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'initialize()' and 'reset()' once you receive 'done = True'")
             return
 
+        action = np.array(action).astype('float32')
+
         self.curr_episode += 1
 
         reward = 0
@@ -163,7 +165,7 @@ class CtoEnv(gym.Env):
             if not agentReachedDest:
                 agentReachedDest = self.moveAgent(action)
             else:
-                self.agentPosition = action.astype('float32')
+                self.agentPosition = action
 
             #Calculate reward at this step
             for i, t in enumerate(self.targetLocations):
